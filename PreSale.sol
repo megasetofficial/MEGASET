@@ -395,39 +395,42 @@ interface IVesting{
 contract PreSale is Context, Ownable{
     using SafeMath for uint256;
     address MSET;
-    uint256 minOrder = 50;
-    uint256 maxOrder = 10000;
-    address payable fundsWallet;
+    address payable fundsWallet = payable(0xDae24AC010237FD3B9A255E30fc544b8F0a8fD6B);
     uint256 busdRate = 100; // 1 busd = 100 MSET, OR 0.01 busd = 1 T
     uint256 bnbRate = 41488; // 1BNB = 41,488 MSET
     IVesting vestingC;
     bool saleStart = true;
 
-    modifier validateOrder(uint256 amount) {
-        require(amount >= minOrder * 10 **(18) , "Min order limit is 50 BUSD");
-        require(amount <= maxOrder * 10 **(18) , "Max order limit is 10,000 BUSD");
+    modifier validateOrder(uint256 amount, bool isBusd) {
+        if(isBusd){
+            require(amount >= 50 * 10 **(18) , "Min order limit is 50 BUSD");
+            require(amount <= 10000 * 10 **(18) , "Max order limit is 10,000 BUSD");
+        }
+        else {
+            require(amount >= 15 * 10 **(16) , "Min order limit is 0.15 BNB");
+            require(amount <= 24 * 10 **(18) , "Max order limit is 24 BNB");
+        }
         _;
     }
 
     modifier saleOpen{
-        require(block.timestamp > 1651190400, "Sale will start on 29th april 2022 12 am GMT");
+        require(block.timestamp > 1651237200, "Sale will start on 29th April 2022 13:00 GMT");
         require(saleStart, "sale is closed");
         require(IBEP20(MSET).balanceOf(address(this)) > 0,"Not sufficient balance in contract" );
         _;
     }
 
-    constructor(address msetTokenAdd_, address payable fundsWallet_) {
+    constructor(address msetTokenAdd_) {
         MSET = msetTokenAdd_;
-        fundsWallet = fundsWallet_;
     }
 
-    function BuyWithBUSD(uint256 amount_) validateOrder(amount_) external{
+    function BuyWithBUSD(uint256 amount_) validateOrder(amount_, true) external{
         purchaseToken_(amount_, busdRate);
         // transfer funds to owner
         require(IBEP20(MSET).transferFrom(_msgSender(), fundsWallet, amount_), "BUSD funds transfer failed");
     }
 
-    function BuyWithBNB(uint256 amount_) public{
+    function BuyWithBNB(uint256 amount_) validateOrder(amount_, false) public{
         purchaseToken_(amount_, bnbRate);
         // transfer funds to owner
         fundsWallet.transfer(amount_);
@@ -451,6 +454,11 @@ contract PreSale is Context, Ownable{
 
     function closeSale() external onlyOwner{
         saleStart = false;
+    }
+
+    function getUnSoldTokens() external onlyOwner{
+        require(IBEP20(MSET).balanceOf(address(this)) > 0, "insufficient balance in contract");
+        require(IBEP20(MSET).transfer(_msgSender(), IBEP20(MSET).balanceOf(address(this))), "Token sending from presale-contract failed");
     }
 
 }
