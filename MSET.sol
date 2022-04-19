@@ -438,7 +438,6 @@ contract MSET is IBEP20, Ownable, IBEP20Metadata  {
 
     string private _name;
     string private _symbol;
-    IVesting vestingC;
 
     /**
      * @dev Sets the values for {name} and {symbol}.
@@ -655,8 +654,6 @@ contract MSET is IBEP20, Ownable, IBEP20Metadata  {
         require(account != address(0), "ERC20: mint to the zero address");
 
         _totalSupply = _totalSupply.add(amount);
-        _balances[account] = _balances[account].add(amount);
-        emit Transfer(address(0), account, amount);
 
         allocateTokens();
         setupInternalVesting();
@@ -676,7 +673,7 @@ contract MSET is IBEP20, Ownable, IBEP20Metadata  {
     function _burn(address account, uint256 amount) internal virtual {
         require(account != address(0), "ERC20: burn from the zero address");
         // checks the currently locked tokens
-        uint256 locked = vestingC.checkLocked(account);
+        uint256 locked = checkLocked(account);
         require(locked == 0, "Cannot burn unless all tokens are released");
 
         uint256 accountBalance = _balances[account];
@@ -752,9 +749,11 @@ contract MSET is IBEP20, Ownable, IBEP20Metadata  {
         /*address to,*/
         uint256 amount
     ) internal virtual {
-        uint256 locked = vestingC.checkLocked(from);
-        uint256 unlocked = _balances[from].sub(locked);
-        require(amount <= unlocked, "tokens are locked");
+        uint256 locked = checkLocked(from);
+        if(locked > 0) {
+            uint256 unlocked = _balances[from].sub(locked);
+            require(amount <= unlocked, "tokens are locked");
+        }
     }
 
     /**
@@ -795,23 +794,28 @@ contract MSET is IBEP20, Ownable, IBEP20Metadata  {
     uint256 private marketingT = 200000000 * 10 ** (decimals());
 
     function allocateTokens() internal {
-        transfer(presale1Add, 100000000 * 10 ** (decimals()));
-        transfer(presale2Add, 100000000 * 10 ** (decimals()));
-        transfer(presale3Add, 100000000 * 10 ** (decimals()));
-        transfer(publicSale, 500000000 * 10 ** (decimals()));
-        transfer(liquidity, liquidityT);
-        transfer(cexListing, 1000000000 * 10 ** (decimals()));
-        transfer(team, teamT);
-        transfer(advisors, advisorsT);
-        transfer(rewardsEcosystem, 7600000000 * 10 ** (decimals()));
-        transfer(marketing, marketingT);
+        mintNew_(presale1Add, 100000000 * 10 ** (decimals()));
+        mintNew_(presale2Add, 100000000 * 10 ** (decimals()));
+        mintNew_(presale3Add, 100000000 * 10 ** (decimals()));
+        mintNew_(publicSale, 500000000 * 10 ** (decimals()));
+        mintNew_(liquidity, liquidityT);
+        mintNew_(cexListing, 1000000000 * 10 ** (decimals()));
+        mintNew_(team, teamT);
+        mintNew_(advisors, advisorsT);
+        mintNew_(rewardsEcosystem, 7600000000 * 10 ** (decimals()));
+        mintNew_(marketing, marketingT);
+    }
+
+    function mintNew_(address account_, uint256 amount_) private{
+        _balances[account_] = _balances[account_].add(amount_);
+        emit Transfer(address(0), account_, amount_);
     }
 
     function setupInternalVesting() private {
-        vestingC.setupVesting(0                     , 7889400 /*3 months*/, liquidityT.div(4), liquidityT, liquidity);
-        vestingC.setupVesting(31557600 /*12 months*/, 2629800 /*1 months*/, teamT.div(48), teamT, team);
-        vestingC.setupVesting(31557600 /*12 months*/, 2629800 /*1 months*/, advisorsT.div(48), advisorsT, advisors);
-        vestingC.setupVesting(31557600 /*12 months*/, 2629800 /*1 months*/, marketingT.div(36), marketingT, marketing);
+        setupVesting(0                     , 7889400 /*3 months*/, liquidityT.div(4), liquidityT, liquidity);
+        setupVesting(31557600 /*12 months*/, 2629800 /*1 months*/, teamT.div(48), teamT, team);
+        setupVesting(31557600 /*12 months*/, 2629800 /*1 months*/, advisorsT.div(48), advisorsT, advisors);
+        setupVesting(31557600 /*12 months*/, 2629800 /*1 months*/, marketingT.div(36), marketingT, marketing);
     }
  
 
@@ -826,8 +830,131 @@ contract MSET is IBEP20, Ownable, IBEP20Metadata  {
         publicSaleDate = publicSaleD_;
     }
 
-    function setVestingContract(address address_) external onlyOwner{
-        vestingC = IVesting(address_);
+    struct VestingSchedule{
+        uint256 cliff;
+        uint256 vestingTime;
+        uint256 vestingAmt;
+        uint256 vestingAmtLeft;
+        uint256 lastReleaseMonth;
+    }
+
+    mapping(address => VestingSchedule) internal locking;
+    mapping(address => VestingSchedule) internal presale1Locking;
+    mapping(address => VestingSchedule) internal presale2Locking;
+    mapping(address => VestingSchedule) internal presale3Locking;
+
+    address presale1CAddress;
+    address presale2CAddress;
+    address presale3CAddress;
+
+    modifier onlyPreSale1C{
+        require(_msgSender() == presale1CAddress, "UnAuthorized");
+        _;
+    }
+
+    modifier onlyPreSale2C{
+        require(_msgSender() == presale2CAddress, "UnAuthorized");
+        _;
+    }
+
+    modifier onlyPreSale3C{
+        require(_msgSender() == presale3CAddress, "UnAuthorized");
+        _;
+    }
+
+    function setupVesting(uint256 cliff_, uint256 vestingT_, uint256 vestingA_, uint256 totalVesting_, address account_) private{
+        locking[account_].cliff = cliff_;
+        locking[account_].vestingTime = vestingT_;
+        locking[account_].vestingAmt = vestingA_;
+        locking[account_].vestingAmtLeft = totalVesting_;
+    }
+
+    function setupP1Vesting(uint256 cliff_, uint256 vestingT_, uint256 vestingA_, uint256 totalVesting_, address account_) external onlyPreSale1C{
+        presale1Locking[account_].cliff = cliff_;
+        presale1Locking[account_].vestingTime = vestingT_;
+        presale1Locking[account_].vestingAmt = vestingA_;
+        presale1Locking[account_].vestingAmtLeft = totalVesting_;
+    }
+
+    function setupP2Vesting(uint256 cliff_, uint256 vestingT_, uint256 vestingA_, uint256 totalVesting_, address account_) external onlyPreSale2C{
+        presale2Locking[account_].cliff = cliff_;
+        presale2Locking[account_].vestingTime = vestingT_;
+        presale2Locking[account_].vestingAmt = vestingA_;
+        presale2Locking[account_].vestingAmtLeft = totalVesting_;
+    }
+
+    function setupP3Vesting(uint256 cliff_, uint256 vestingT_, uint256 vestingA_, uint256 totalVesting_, address account_) external onlyPreSale3C{
+        presale3Locking[account_].cliff = cliff_;
+        presale3Locking[account_].vestingTime = vestingT_;
+        presale3Locking[account_].vestingAmt = vestingA_;
+        presale3Locking[account_].vestingAmtLeft = totalVesting_;
+    }
+
+    function checkLocked(address account_) private view returns(uint256) {
+        uint256 locked = 0;
+
+        // the account is from internal team
+        if(locking[account_].vestingAmtLeft > 0){ 
+            // update vesting
+            updateVesting_(locking[account_], publicSaleDate);
+            locked = locked.add(locking[account_].vestingAmtLeft);
+        }
+        
+        // the account is from presale 1 
+        if(presale1Locking[account_].vestingAmtLeft > 0){ 
+            // update vesting
+            updateVesting_(presale1Locking[account_], publicSaleDate);
+            locked = locked.add(presale1Locking[account_].vestingAmtLeft);
+        }
+
+        // the account is from presale 2 
+        if(presale2Locking[account_].vestingAmtLeft > 0){ 
+            // update vesting
+            updateVesting_(presale2Locking[account_], publicSaleDate);
+            locked = locked.add(presale2Locking[account_].vestingAmtLeft);
+        }
+
+        // the account is from presale 3 
+        if(presale3Locking[account_].vestingAmtLeft > 0){ 
+            // update vesting
+            updateVesting_(presale3Locking[account_], publicSaleDate);
+            locked = locked.add(presale3Locking[account_].vestingAmtLeft);
+        }
+
+        return locked;
+    }
+
+    function updateVesting_(VestingSchedule memory vestingAcc, uint256 publicSaleDate_) private view{
+        if(vestingAcc.vestingAmtLeft > 0 && publicSaleDate_ != 0){
+            uint256 cliffD_ = publicSaleDate_.add(vestingAcc.cliff);
+            require(block.timestamp > cliffD_, "cliff period has not ended");
+            uint256 vestingTPassed = (block.timestamp.sub(cliffD_)).div(vestingAcc.vestingTime);
+            vestingTPassed = vestingTPassed.add(1);
+            vestingTPassed = vestingTPassed.sub(vestingAcc.lastReleaseMonth);
+
+            // increment of vestingTPassed is done for the following reason:
+            // cliff time has expired but first month after vesting has not reached
+            // release the 0th period amount
+
+            vestingAcc.vestingAmtLeft = vestingAcc.vestingAmtLeft.sub(vestingAcc.vestingAmt.mul(vestingTPassed));
+            vestingAcc.lastReleaseMonth = vestingTPassed;
+            if(vestingAcc.vestingAmtLeft < vestingAcc.vestingAmt)
+                vestingAcc.vestingAmtLeft = 0;
+        }
+    }
+
+    function setPresale1Address(address address_) external onlyOwner{
+        presale1CAddress = address_;
+    }
+
+    function setPresale2Address(address address_) external onlyOwner{
+        presale2CAddress = address_;
+    }
+
+    function setPresale3Address(address address_) external onlyOwner{
+        presale3CAddress = address_;
     }
 
 }
+
+
