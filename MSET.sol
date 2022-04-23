@@ -1,4 +1,4 @@
-pragma solidity ^0.8.0;
+pragma solidity 0.8.13;
 // SPDX-License-Identifier: UNLICENSED
 
 /**
@@ -792,6 +792,7 @@ contract MSET is IBEP20, Ownable, IBEP20Metadata  {
     address private rewardsEcosystem = 0x438dD079aB86ac54B458a9aCe1be41513D19cf58;
     address private marketing = 0x200ef1688AFB4AB362a4c4BF9BDb5e273e2FBd31;
     uint256 private marketingT = 200000000 * 10 ** (decimals());
+    uint256 private rewardEcosystemT = 7600000000 * 10 ** (decimals());
 
     function allocateTokens() internal {
         mintNew_(presale1Add, 100000000 * 10 ** (decimals()));
@@ -802,7 +803,7 @@ contract MSET is IBEP20, Ownable, IBEP20Metadata  {
         mintNew_(cexListing, 1000000000 * 10 ** (decimals()));
         mintNew_(team, teamT);
         mintNew_(advisors, advisorsT);
-        mintNew_(rewardsEcosystem, 7600000000 * 10 ** (decimals()));
+        mintNew_(rewardsEcosystem, rewardEcosystemT);
         mintNew_(marketing, marketingT);
     }
 
@@ -816,6 +817,7 @@ contract MSET is IBEP20, Ownable, IBEP20Metadata  {
         setupVesting(31557600 /*12 months*/, 2629800 /*1 months*/, teamT.div(48), teamT, team);
         setupVesting(31557600 /*12 months*/, 2629800 /*1 months*/, advisorsT.div(48), advisorsT, advisors);
         setupVesting(31557600 /*12 months*/, 2629800 /*1 months*/, marketingT.div(36), marketingT, marketing);
+        setupVesting(18408600 /*7 months*/, 2629800 /*1 months*/, rewardEcosystemT.div(60), rewardEcosystemT, rewardsEcosystem);
     }
  
 
@@ -843,9 +845,9 @@ contract MSET is IBEP20, Ownable, IBEP20Metadata  {
     mapping(address => VestingSchedule) internal presale2Locking;
     mapping(address => VestingSchedule) internal presale3Locking;
 
-    address presale1CAddress;
-    address presale2CAddress;
-    address presale3CAddress;
+    address private presale1CAddress;
+    address private presale2CAddress;
+    address private presale3CAddress;
 
     modifier onlyPreSale1C{
         require(_msgSender() == presale1CAddress, "UnAuthorized");
@@ -872,22 +874,22 @@ contract MSET is IBEP20, Ownable, IBEP20Metadata  {
     function setupP1Vesting(uint256 cliff_, uint256 vestingT_, uint256 vestingA_, uint256 totalVesting_, address account_) external onlyPreSale1C{
         presale1Locking[account_].cliff = cliff_;
         presale1Locking[account_].vestingTime = vestingT_;
-        presale1Locking[account_].vestingAmt = vestingA_;
-        presale1Locking[account_].vestingAmtLeft = totalVesting_;
+        presale1Locking[account_].vestingAmt = presale1Locking[account_].vestingAmt.add(vestingA_);
+        presale1Locking[account_].vestingAmtLeft = presale1Locking[account_].vestingAmtLeft.add(totalVesting_);
     }
 
     function setupP2Vesting(uint256 cliff_, uint256 vestingT_, uint256 vestingA_, uint256 totalVesting_, address account_) external onlyPreSale2C{
         presale2Locking[account_].cliff = cliff_;
         presale2Locking[account_].vestingTime = vestingT_;
-        presale2Locking[account_].vestingAmt = vestingA_;
-        presale2Locking[account_].vestingAmtLeft = totalVesting_;
+        presale2Locking[account_].vestingAmt = presale2Locking[account_].vestingAmt.add(vestingA_);
+        presale2Locking[account_].vestingAmtLeft = presale2Locking[account_].vestingAmtLeft.add(totalVesting_);
     }
 
     function setupP3Vesting(uint256 cliff_, uint256 vestingT_, uint256 vestingA_, uint256 totalVesting_, address account_) external onlyPreSale3C{
         presale3Locking[account_].cliff = cliff_;
         presale3Locking[account_].vestingTime = vestingT_;
-        presale3Locking[account_].vestingAmt = vestingA_;
-        presale3Locking[account_].vestingAmtLeft = totalVesting_;
+        presale3Locking[account_].vestingAmt = presale3Locking[account_].vestingAmt.add(vestingA_);
+        presale3Locking[account_].vestingAmtLeft = presale3Locking[account_].vestingAmtLeft.add(totalVesting_);
     }
 
     function checkLocked(address account_) private view returns(uint256) {
