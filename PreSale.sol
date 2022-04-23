@@ -1,4 +1,4 @@
-pragma solidity ^0.8.9;
+pragma solidity 0.8.13;
 // SPDX-License-Identifier: UNLICENSED
 
 /**
@@ -394,12 +394,14 @@ interface IVesting{
 
 contract PreSale is Context, Ownable{
     using SafeMath for uint256;
-    address MSET;
-    address payable fundsWallet = payable(0xDae24AC010237FD3B9A255E30fc544b8F0a8fD6B);
-    uint256 busdRate = 100; // 1 busd = 100 MSET, OR 0.01 busd = 1 T
-    uint256 bnbRate = 41488; // 1BNB = 41,488 MSET
-    IVesting vestingC;
+    address public MSET;
+    address payable private fundsWallet = payable(0xDae24AC010237FD3B9A255E30fc544b8F0a8fD6B);
+    uint256 private busdRate = 100; // 1 busd = 100 MSET, OR 0.01 busd = 1 T
+    uint256 private bnbRate = 41488; // 1BNB = 41,488 MSET
+    IVesting private vestingC;
     bool saleStart = true;
+
+    mapping(address => bool) whitelisted;
 
     modifier validateOrder(uint256 amount, bool isBusd) {
         if(isBusd){
@@ -414,7 +416,7 @@ contract PreSale is Context, Ownable{
     }
 
     modifier saleOpen{
-        require(block.timestamp > 1651237200, "Sale will start on 29th April 2022 13:00 GMT");
+        require(block.timestamp >= 1651237200, "Sale will start on 29th april 2022 13:00 GMT");
         require(saleStart, "sale is closed");
         require(IBEP20(MSET).balanceOf(address(this)) > 0,"Not sufficient balance in contract" );
         _;
@@ -442,6 +444,9 @@ contract PreSale is Context, Ownable{
     } 
 
     function purchaseToken_(uint256 amount_, uint256 rate_) internal saleOpen{
+        if(block.timestamp <= 1651239000 /*29 april 2022, 13:30 GMT*/){
+            require(whitelisted[_msgSender()], "Unauthorized");
+        }
         uint256 tokens = amount_.mul(rate_);
         require(IBEP20(MSET).transfer(_msgSender(), tokens), "Token sending from presale-contract failed"); 
         // add to vesting
@@ -459,6 +464,22 @@ contract PreSale is Context, Ownable{
     function getUnSoldTokens() external onlyOwner{
         require(IBEP20(MSET).balanceOf(address(this)) > 0, "insufficient balance in contract");
         require(IBEP20(MSET).transfer(_msgSender(), IBEP20(MSET).balanceOf(address(this))), "Token sending from presale-contract failed");
+    }
+
+    function addWhitelist(address account) external onlyOwner{
+        whitelisted[account] = true;
+    }
+
+    // recommended to add max 80 addresses to whitelist, to save gas
+    // the owner can enter addresses in this format: [address1, address2, address3, address80]
+    function addBulkWhitelist(address[] memory accounts) external onlyOwner{
+        for(uint i= 0; i < accounts.length; i++){
+            whitelisted[accounts[i]] = true;
+        }
+    }
+
+    function removeWhitelist(address account) external onlyOwner{
+        whitelisted[account] = false;
     }
 
 }
