@@ -8,9 +8,11 @@ Nowadays blockchain technology has become more mainstream. Cryptocurrencies and 
 
 Through MEGASET blockchain technology products and services, people are able to earn and grow their MEGASET and crypto assets. MEGASET creates an ecology where everyone wins, and realizes the freedom of wealth by sharing economy, and no longer be monopolized by the power of capital and social consortia. Let’s redefine the meaning of wealth. MEGAET Team aim to build a decentralized project as A fair, impartial & truly valuable cryptocurrency.
 
-➤ For more updates, follow us on our social channels
-Megaset Official Website : https://www.megaset.io
-Reddit : https://www.reddit.com/r/MegasetOfficial
-Twitter: https://twitter.com/MegasetOfficial
-Telegram Announcements : https://t.me/MegasetOfficial
-Whitepaper : https://docs.megaset.io
+
+
+➤ For more updates, follow us on our social channels :
+<br>Megaset Official Website : https://www.megaset.io 
+<br>Whitepaper : https://docs.megaset.io
+<br>Reddit : https://www.reddit.com/r/MegasetOfficial 
+<br>Twitter: https://twitter.com/MegasetOfficial 
+<br>Telegram Announcements : https://t.me/MegasetOfficial 
