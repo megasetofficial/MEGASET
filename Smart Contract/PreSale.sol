@@ -395,9 +395,9 @@ interface IVesting{
 contract PreSale is Context, Ownable{
     using SafeMath for uint256;
     address public MSET;
-    address payable private fundsWallet = payable(0xDae24AC010237FD3B9A255E30fc544b8F0a8fD6B);
-    uint256 private busdRate = 100; // 1 busd = 100 MSET, OR 0.01 busd = 1 T
-    uint256 private bnbRate = 41488; // 1BNB = 41,488 MSET
+    address payable constant private fundsWallet = payable(0xDae24AC010237FD3B9A255E30fc544b8F0a8fD6B);
+    uint256 constant private busdRate = 100; // 1 busd = 100 MSET, OR 0.01 busd = 1 T
+    uint256 constant private bnbRate = 41488; // 1BNB = 41,488 MSET
     IVesting private vestingC;
     bool saleStart = true;
 
@@ -426,12 +426,14 @@ contract PreSale is Context, Ownable{
         MSET = msetTokenAdd_;
     }
 
+    // This function can be used by users to purchase tokens via BUSD
     function BuyWithBUSD(uint256 amount_) validateOrder(amount_, true) external{
         purchaseToken_(amount_, busdRate);
         // transfer funds to owner
         require(IBEP20(MSET).transferFrom(_msgSender(), fundsWallet, amount_), "BUSD funds transfer failed");
     }
 
+    // This function can be used by users to purchase tokens via BNB 
     function BuyWithBNB(uint256 amount_) validateOrder(amount_, false) public{
         purchaseToken_(amount_, bnbRate);
         // transfer funds to owner
@@ -443,6 +445,7 @@ contract PreSale is Context, Ownable{
         BuyWithBNB(msg.value);
     } 
 
+    // Internal function to process the token purchase
     function purchaseToken_(uint256 amount_, uint256 rate_) internal saleOpen{
         if(block.timestamp <= 1651239000 /*29 april 2022, 13:30 GMT*/){
             require(whitelisted[_msgSender()], "Unauthorized");
@@ -453,19 +456,26 @@ contract PreSale is Context, Ownable{
         vestingC.setupP1Vesting(/*6 months*/ 15778800, 2629800 /*1 month*/, tokens.div(36), tokens, _msgSender());
     }
 
+    event vestingContractUpdated(address newAddress);
+    // Owner can use this function to set the vesting contract address
     function setVestingContract(address address_) external onlyOwner{
+        require(address_ != address(0), "Zero address not allowed");
+        emit vestingContractUpdated(address_);
         vestingC = IVesting(address_);
     }
 
+    // Owner can use this function to close the sale 
     function closeSale() external onlyOwner{
         saleStart = false;
     }
 
+    // Owner can use this function to get un sold tokens
     function getUnSoldTokens() external onlyOwner{
         require(IBEP20(MSET).balanceOf(address(this)) > 0, "insufficient balance in contract");
         require(IBEP20(MSET).transfer(_msgSender(), IBEP20(MSET).balanceOf(address(this))), "Token sending from presale-contract failed");
     }
 
+    // Owner can use this function to add an account to whitelist
     function addWhitelist(address account) external onlyOwner{
         whitelisted[account] = true;
     }
@@ -478,6 +488,7 @@ contract PreSale is Context, Ownable{
         }
     }
 
+    // Owner can use this function to remove an account from whitelist
     function removeWhitelist(address account) external onlyOwner{
         whitelisted[account] = false;
     }
