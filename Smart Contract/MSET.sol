@@ -819,8 +819,8 @@ contract MSET is IBEP20, Ownable, IBEP20Metadata  {
         setupVesting(18403200 /*7 months*/, 2629800 /*1 months*/, rewardEcosystemT.div(60), rewardEcosystemT, rewardsEcosystem);
     }
  
-
-    uint256 public publicSaleDate; // the date of public sale, after which vesting release will start
+    // 3rd dec 2022, 1pm UTC
+    uint256 public publicSaleDate = 1670072400; // the date of public sale, after which vesting release will start
 
     // users can use this function to burn tokens from their account
     function burn(uint256 amount) external returns(bool){
@@ -829,6 +829,7 @@ contract MSET is IBEP20, Ownable, IBEP20Metadata  {
     }
 
     event publicSaleDateUpdated(uint256 _oldDate, uint256 _newDate);
+
     // owner will use this function to set the public sale date
     function setPublicSaleDate(uint256 publicSaleD_) external onlyOwner{
         require(publicSaleD_ > block.timestamp, "Invalid date");
@@ -950,7 +951,6 @@ contract MSET is IBEP20, Ownable, IBEP20Metadata  {
             (amtL, tP) = updateVesting_(locking[account_], publicSaleDate);
             update(locking[account_], amtL, tP);
             locked = locked.add(amtL);
-
         }
         
         // the account is from presale 1 
@@ -999,6 +999,9 @@ contract MSET is IBEP20, Ownable, IBEP20Metadata  {
                 amountL_ = 0;
 
             return (amountL_, timeP_);
+        } 
+        else if(vestingAcc.vestingAmtLeft > 0 && publicSaleDate_ == 0) {
+            return (vestingAcc.vestingAmtLeft, 0);
         }
     }
 
