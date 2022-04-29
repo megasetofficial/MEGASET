@@ -401,7 +401,7 @@ contract PreSale is Context, Ownable{
     IVesting private vestingC;
     bool saleStart = true;
 
-    mapping(address => bool) whitelisted;
+    mapping(address => bool) public whitelisted;
 
     modifier validateOrder(uint256 amount, bool isBusd) {
         if(isBusd){
